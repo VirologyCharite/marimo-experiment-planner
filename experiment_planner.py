@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.17.0"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", css_file="custom.css")
 
 
 @app.cell
@@ -10,24 +10,178 @@ def _():
     import pandas as pd
     import itertools as it
     import re
-    return it, mo, pd, re
+    import numpy as np
+    import math
+    return it, math, mo, np, pd, re
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(experiment, groups, mo, sample_sheet):
-    left_col = mo.vstack(
+    _left_col = mo.vstack(
         [
             mo.md("## Input"),
             experiment,
             groups.style(width="400px").left(),
         ]
     )
-    right_col = mo.vstack([
-        mo.md("## Output"),
-        mo.ui.table(sample_sheet),
-    ])
-    mo.hstack([left_col,right_col])
+    _right_col = mo.vstack(
+        [
+            mo.md("## Output"),
+            mo.ui.table(sample_sheet),
+        ]
+    )
+    mo.hstack([_left_col, _right_col])
     return
+
+
+@app.cell(hide_code=True)
+def _(data_checkboxes, mo, plate_type, rows_per_plate, samples_per_row):
+    mo.vstack(
+        [
+            mo.hstack(
+                [
+                    mo.vstack([plate_type, samples_per_row, rows_per_plate]),
+                    mo.vstack(
+                        [
+                            mo.md("**Data to show in plate view:**"),
+                            *data_checkboxes,
+                        ]
+                    ),
+                ]
+            ),
+        ]
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(
+    arrays_to_tables,
+    data_checkboxes,
+    generate_plate_new,
+    mo,
+    plate_type,
+    rows_per_plate,
+    sample_sheet,
+    samples_per_row,
+):
+    mo.Html(
+        arrays_to_tables(
+            generate_plate_new(
+                sample_sheet.loc[:, data_checkboxes.value],
+                plate_type.value,
+                samples_per_row.value,
+                rows_per_plate.value,
+            )
+        )
+    )
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell(hide_code=True)
+def _(math, np):
+    def arrays_to_tables(arrays):
+        html = ""
+        for array_idx, array in enumerate(arrays):
+            headers = "".join(
+                [f"<th>{x}</th>" for x in range(1, array.shape[1] + 1)]
+            )
+            html_table = f"<b>Table {array_idx + 1}</b><table class='plate'><tr><th></th>{headers}</tr>"
+            for row_idx, row in enumerate(array):
+                html_table += f"<tr><td>{chr(row_idx + 65)}</td>"
+                for cell in row:
+                    html_table += f"<td>{cell}</td>"
+                html_table += "</tr>"
+            html_table += "</table>"
+            html += html_table
+        return html
+
+
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
+
+    # Plate generator
+    def generate_plate_new(
+        df,
+        plate_type=24,
+        samples_per_row=None,
+        rows_per_plate=None,
+    ):
+        plate_layouts = {  # row, col
+            6: (2, 3),
+            12: (3, 4),
+            24: (4, 6),
+            48: (6, 8),
+            96: (8, 12),
+        }
+        plate_layout = plate_layouts[plate_type]
+
+        content = [list(x)[1:] for x in df.itertuples()]
+        content = ["<br />".join([str(x) for x in y]) for y in content]
+
+        samples_per_plate = samples_per_row * rows_per_plate
+        n_plates = math.ceil(len(content) / samples_per_plate)
+        content_idx = 0
+        plates = []
+        for _ in range(0, n_plates):
+            plate = np.full(plate_layout, "", dtype=object)
+            for row_idx, row in enumerate(plate):
+                if row_idx >= rows_per_plate:
+                    continue
+                for col_idx, col in enumerate(row):
+                    if col_idx >= samples_per_row:
+                        continue
+                    if content_idx >= len(content):
+                        continue
+                    plate[row_idx, col_idx] = content[content_idx]
+                    content_idx += 1
+            plates.append(plate)
+
+        return plates
+    return arrays_to_tables, generate_plate_new
+
+
+@app.cell(hide_code=True)
+def _(mo, sample_sheet):
+    plate_type = mo.ui.dropdown(
+        options=[6, 12, 24, 48, 96],
+        allow_select_none=False,
+        value=6,
+        label="Plate type",
+    )
+
+    data_checkboxes = mo.ui.array(
+        [mo.ui.checkbox(label=x) for x in sample_sheet.columns]
+    )
+    return data_checkboxes, plate_type
+
+
+@app.cell(hide_code=True)
+def _(mo, plate_type):
+    plate_layout = {6: (3, 2), 12: (4, 3), 24: (6, 4), 48: (8, 6), 96: (12, 8)}
+    samples_per_row = mo.ui.slider(
+        label="Samples/row",
+        start=1,
+        stop=plate_layout[plate_type.value][0],
+        value=plate_layout[plate_type.value][0],
+        show_value=True,
+    )
+    rows_per_plate = mo.ui.slider(
+        label="Rows/plate",
+        start=1,
+        stop=plate_layout[plate_type.value][1],
+        value=plate_layout[plate_type.value][1],
+        show_value=True,
+    )
+    return rows_per_plate, samples_per_row
 
 
 @app.cell(hide_code=True)
@@ -62,8 +216,8 @@ def _(experiment, groups, it, pd, re):
     for line in groups.value.split("\n"):
         if len(line) == 0:
             continue
-        line = re.sub("^\t\d\.","-",line)
-        line = re.sub("^\d\.","-",line)
+        line = re.sub("^\t\d\.", "-", line)
+        line = re.sub("^\d\.", "-", line)
         if line.startswith("-"):
             _groups[current_group].append(line[1:].strip())
         else:
@@ -77,9 +231,9 @@ def _(experiment, groups, it, pd, re):
     _id_len = len(str(len(sample_sheet)))
     _ids = [
         f"{experiment.value}_{str(x).rjust(_id_len, '0')}"
-        for x in range(1, len(sample_sheet)+1)
+        for x in range(1, len(sample_sheet) + 1)
     ]
-    sample_sheet.insert(0,"ID",_ids)
+    sample_sheet.insert(0, "ID", _ids)
     return (sample_sheet,)
 
 
