@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.17.0"
-app = marimo.App(width="medium", css_file="custom.css")
+app = marimo.App(width="medium", css_file="")
 
 
 @app.cell
@@ -86,7 +86,55 @@ def _():
 @app.cell(hide_code=True)
 def _(math, np):
     def arrays_to_tables(arrays):
-        html = ""
+        html = """<style>
+        /* generated with chatgpt, as I don't want to learn CSS right now */
+                                
+        /* Plate table container */
+        table.plate {
+            border-collapse: collapse;
+            border-spacing: 0;
+            margin: 10px 0;
+            table-layout: fixed;           /* ensures fixed cell sizes */
+            font-family: sans-serif;
+        }
+    
+        /* All cells */
+        table.plate th,
+        table.plate td {
+            width: 70px;                   /* fixed well width */
+            height: 50px;                  /* fixed well height */
+            border: 1px solid #bcbcbc;
+            text-align: center;
+            vertical-align: middle;
+            padding: 4px;
+            overflow-wrap: break-word;     /* allow line breaks */
+            overflow: hidden;
+    
+            /* Auto-scaling font size depending on text length */
+            font-size: clamp(0.55rem, 1.4vw, 0.95rem);
+            line-height: 1.15;
+        }
+    
+        /* Top header row */
+        table.plate th {
+            background-color: #e8e8e8;
+            font-weight: 600;
+        }
+    
+        /* First left-side index column */
+        table.plate td:first-child {
+            background-color: #e8e8e8;
+            font-weight: 600;
+            width: 45px;                   /* row label narrower than wells */
+        }
+    
+        /* Optional: hover highlight */
+        table.plate td:not(:first-child):hover {
+            background-color: #f5faff;
+        }
+        </style>
+                                                                    """
+
         for array_idx, array in enumerate(arrays):
             headers = "".join(
                 [f"<th>{x}</th>" for x in range(1, array.shape[1] + 1)]
