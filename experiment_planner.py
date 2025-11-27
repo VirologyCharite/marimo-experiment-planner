@@ -4,7 +4,7 @@ __generated_with = "0.17.0"
 app = marimo.App(width="medium", css_file="")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
     import pandas as pd
@@ -22,6 +22,7 @@ def _(experiment, groups, mo, sample_sheet):
             mo.md("## Input"),
             experiment,
             groups.style(width="400px").left(),
+            mo.ui.array,
         ]
     )
     _right_col = mo.vstack(
@@ -34,7 +35,7 @@ def _(experiment, groups, mo, sample_sheet):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(data_checkboxes, mo, plate_type, rows_per_plate, samples_per_row):
     mo.vstack(
         [
@@ -54,7 +55,51 @@ def _(data_checkboxes, mo, plate_type, rows_per_plate, samples_per_row):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
+def _(mo):
+    plate_type = mo.ui.dropdown(
+        options=[6, 12, 24, 48, 96],
+        allow_select_none=False,
+        value=6,
+        label="Plate type",
+    )
+    return (plate_type,)
+
+
+@app.cell
+def _(mo, sample_sheet):
+    data_checkboxes = mo.ui.array(
+        [mo.ui.checkbox(label=x) for x in sample_sheet.columns]
+    )
+    return (data_checkboxes,)
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(mo, plate_type):
+    plate_layout = {6: (3, 2), 12: (4, 3), 24: (6, 4), 48: (8, 6), 96: (12, 8)}
+    samples_per_row = mo.ui.slider(
+        label="Samples/row",
+        start=1,
+        stop=plate_layout[plate_type.value][0],
+        value=plate_layout[plate_type.value][0],
+        show_value=True,
+    )
+    rows_per_plate = mo.ui.slider(
+        label="Rows/plate",
+        start=1,
+        stop=plate_layout[plate_type.value][1],
+        value=plate_layout[plate_type.value][1],
+        show_value=True,
+    )
+    return rows_per_plate, samples_per_row
+
+
+@app.cell
 def _(
     arrays_to_tables,
     data_checkboxes,
@@ -78,17 +123,17 @@ def _(
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(math, np):
     def arrays_to_tables(arrays):
         html = """<style>
         /* generated with chatgpt, as I don't want to learn CSS right now */
-                                
+
         /* Plate table container */
         table.plate {
             border-collapse: collapse;
@@ -97,7 +142,7 @@ def _(math, np):
             table-layout: fixed;           /* ensures fixed cell sizes */
             font-family: sans-serif;
         }
-    
+
         /* All cells */
         table.plate th,
         table.plate td {
@@ -109,25 +154,25 @@ def _(math, np):
             padding: 4px;
             overflow-wrap: break-word;     /* allow line breaks */
             overflow: hidden;
-    
+
             /* Auto-scaling font size depending on text length */
             font-size: clamp(0.55rem, 1.4vw, 0.95rem);
             line-height: 1.15;
         }
-    
+
         /* Top header row */
         table.plate th {
             background-color: #e8e8e8;
             font-weight: 600;
         }
-    
+
         /* First left-side index column */
         table.plate td:first-child {
             background-color: #e8e8e8;
             font-weight: 600;
             width: 45px;                   /* row label narrower than wells */
         }
-    
+
         /* Optional: hover highlight */
         table.plate td:not(:first-child):hover {
             background-color: #f5faff;
@@ -197,42 +242,7 @@ def _(math, np):
     return arrays_to_tables, generate_plate_new
 
 
-@app.cell(hide_code=True)
-def _(mo, sample_sheet):
-    plate_type = mo.ui.dropdown(
-        options=[6, 12, 24, 48, 96],
-        allow_select_none=False,
-        value=6,
-        label="Plate type",
-    )
-
-    data_checkboxes = mo.ui.array(
-        [mo.ui.checkbox(label=x) for x in sample_sheet.columns]
-    )
-    return data_checkboxes, plate_type
-
-
-@app.cell(hide_code=True)
-def _(mo, plate_type):
-    plate_layout = {6: (3, 2), 12: (4, 3), 24: (6, 4), 48: (8, 6), 96: (12, 8)}
-    samples_per_row = mo.ui.slider(
-        label="Samples/row",
-        start=1,
-        stop=plate_layout[plate_type.value][0],
-        value=plate_layout[plate_type.value][0],
-        show_value=True,
-    )
-    rows_per_plate = mo.ui.slider(
-        label="Rows/plate",
-        start=1,
-        stop=plate_layout[plate_type.value][1],
-        value=plate_layout[plate_type.value][1],
-        show_value=True,
-    )
-    return rows_per_plate, samples_per_row
-
-
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
     groups_placeholder = """Cell lines
     - A549
@@ -257,13 +267,14 @@ def _(mo):
     return experiment, groups
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(experiment, groups, it, pd, re):
     _groups = {}
     current_group = ""
     for line in groups.value.split("\n"):
         if len(line) == 0:
             continue
+        line = line.lstrip()
         line = re.sub("^\t\d\.", "-", line)
         line = re.sub("^\d\.", "-", line)
         if line.startswith("-"):
